@@ -1,0 +1,29 @@
+{
+  "name": "azure-datalake-cloudflare-worker",
+  "version": "1.0.0",
+  "description": "Azure Data Lake Storage Explorer rodando no Cloudflare Workers com credenciais salvas no navegador",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc --noEmit"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "azure",
+    "datalake",
+    "blob-storage"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
+    "typescript": "^5.5.4",
+    "wrangler": "^3.76.0"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.4.1"
+  }
+}
+
