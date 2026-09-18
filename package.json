@@ -1,5 +1,5 @@
 {
-  "name": "azure-datalake-cloudflare-worker",
+  "name": "azure-datalake-explorer",
   "version": "1.0.0",
   "description": "Azure Data Lake Storage Explorer rodando no Cloudflare Workers com credenciais salvas no navegador",
   "main": "src/index.ts",

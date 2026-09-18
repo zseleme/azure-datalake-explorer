@@ -1,6 +1,6 @@
 # ⚡ Azure Data Lake Explorer no Cloudflare Workers
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zseleme/azure-cloudflare-worker)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zseleme/azure-datalake-explorer)
 
 Aplicação web serverless completa e ultra rápida rodando no **Cloudflare Workers**. Permite navegar, visualizar, baixar e enviar arquivos para o **Azure Data Lake / Blob Storage** com as credenciais salvas de forma 100% privada no **`localStorage` do navegador do usuário**.
 
@@ -10,7 +10,7 @@ Aplicação web serverless completa e ultra rápida rodando no **Cloudflare Work
 
 Clique no botão abaixo para fazer o deploy automático da aplicação diretamente na sua conta da Cloudflare:
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zseleme/azure-cloudflare-worker)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zseleme/azure-datalake-explorer)
 
 ---
 
