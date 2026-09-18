@@ -68,7 +68,7 @@ Clique no botão abaixo para fazer o deploy automático da aplicação diretamen
 
 ---
 
-## 💻 Como Rodar Localmente
+##  Como Rodar Localmente
 
 1. Abra o terminal na pasta do projeto:
    ```bash
