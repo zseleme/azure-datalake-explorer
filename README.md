@@ -1,6 +1,16 @@
 # ⚡ Azure Data Lake Explorer no Cloudflare Workers
 
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zseleme/azure-cloudflare-worker)
+
 Aplicação web serverless completa e ultra rápida rodando no **Cloudflare Workers**. Permite navegar, visualizar, baixar e enviar arquivos para o **Azure Data Lake / Blob Storage** com as credenciais salvas de forma 100% privada no **`localStorage` do navegador do usuário**.
+
+---
+
+## 🚀 Deploy em 1 Clique na Cloudflare
+
+Clique no botão abaixo para fazer o deploy automático da aplicação diretamente na sua conta da Cloudflare:
+
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zseleme/azure-cloudflare-worker)
 
 ---
 
@@ -58,7 +68,7 @@ Aplicação web serverless completa e ultra rápida rodando no **Cloudflare Work
 
 ---
 
-## 🚀 Como Rodar Localmente
+## 💻 Como Rodar Localmente
 
 1. Abra o terminal na pasta do projeto:
    ```bash
@@ -70,9 +80,9 @@ Aplicação web serverless completa e ultra rápida rodando no **Cloudflare Work
 
 ---
 
-## 🌐 Como Publicar na Cloudflare (Deploy Público)
+## 🌐 Deploy Manual via Terminal (Wrangler CLI)
 
-1. Faça login no terminal:
+1. Faça login na Cloudflare no terminal:
    ```bash
    npx wrangler login
    ```
@@ -82,4 +92,3 @@ Aplicação web serverless completa e ultra rápida rodando no **Cloudflare Work
    ```
 3. Sua aplicação estará no ar com URL pública protegida por HTTPS:
    👉 `https://azure-datalake-explorer.<seu-subdominio>.workers.dev`
-   *(Qualquer pessoa que acessar precisará informar as credenciais dela no próprio navegador).*
