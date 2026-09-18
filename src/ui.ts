@@ -34,7 +34,7 @@ export function getUIHtml(): string {
         <div class="flex items-center space-x-2">
           <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Container:</label>
           <select id="containerSelect" onchange="changeContainer(this.value)" class="bg-slate-100 border border-slate-300 text-slate-800 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
-            <option value="raw">raw</option>
+            <option value="">Carregando...</option>
           </select>
         </div>
 
@@ -219,8 +219,12 @@ export function getUIHtml(): string {
           <input type="password" id="cfgSecret" required placeholder="WdW8Q~..." class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-0.5">Containers (separados por vírgula):</label>
-          <input type="text" id="cfgContainers" required placeholder="raw, squad1, squad2, squad3" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <div class="flex items-center justify-between mb-0.5">
+            <label class="block text-xs font-semibold text-slate-700">Containers (Opcional):</label>
+            <span class="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-semibold border border-blue-200">Busca Automática</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mb-1">Deixe em branco para buscar todos os containers da conta automaticamente. Ou especifique os nomes separados por vírgula.</p>
+          <input type="text" id="cfgContainers" placeholder="Deixe vazio para trazer todos os containers automaticamente" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
         </div>
 
         <div id="testConnFeedback" class="hidden text-xs p-2.5 rounded-lg"></div>
@@ -255,15 +259,17 @@ export function getUIHtml(): string {
       setupUploadDropZone();
     });
 
-    function loadStoredConfig() {
+    async function loadStoredConfig() {
       const stored = localStorage.getItem("azure_datalake_cfg");
       if (stored) {
         try {
           currentConfig = JSON.parse(stored);
           populateConfigForm();
           document.getElementById("accountBadge").textContent = "Conta: " + currentConfig.storageAccount;
-          initContainers();
-          loadDirectory();
+          await initContainers();
+          if (activeContainer) {
+            loadDirectory();
+          }
           return;
         } catch {
           // falha ao parsear localStorage
@@ -279,7 +285,7 @@ export function getUIHtml(): string {
       document.getElementById("cfgTenant").value = currentConfig.tenantId || "";
       document.getElementById("cfgClient").value = currentConfig.clientId || "";
       document.getElementById("cfgSecret").value = currentConfig.clientSecret || "";
-      document.getElementById("cfgContainers").value = currentConfig.containers || "raw, squad1, squad2, squad3";
+      document.getElementById("cfgContainers").value = currentConfig.containers || "";
     }
 
     function openConfigModal() {
@@ -295,7 +301,7 @@ export function getUIHtml(): string {
       const btn = document.getElementById("btnTestConn");
       const feedback = document.getElementById("testConnFeedback");
       feedback.className = "text-xs p-2.5 rounded-lg bg-blue-50 text-blue-800 flex items-center";
-      feedback.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Testando autenticação no Microsoft Entra ID...';
+      feedback.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Testando autenticação e listando containers no Azure...';
       feedback.classList.remove("hidden");
       btn.disabled = true;
 
@@ -328,7 +334,7 @@ export function getUIHtml(): string {
       }
     }
 
-    function saveConfig(e) {
+    async function saveConfig(e) {
       e.preventDefault();
       const cfg = {
         storageAccount: document.getElementById("cfgAccount").value.trim(),
@@ -342,8 +348,11 @@ export function getUIHtml(): string {
       currentConfig = cfg;
       document.getElementById("accountBadge").textContent = "Conta: " + cfg.storageAccount;
       closeConfigModal();
-      initContainers();
-      loadDirectory();
+      currentPrefix = "";
+      await initContainers();
+      if (activeContainer) {
+        loadDirectory();
+      }
     }
 
     function clearConfig() {
@@ -364,26 +373,54 @@ export function getUIHtml(): string {
       return headers;
     }
 
-    function initContainers(customContainers) {
+    async function initContainers(preferredContainer) {
       const select = document.getElementById("containerSelect");
-      select.innerHTML = "";
-      const source = customContainers || currentConfig?.containers || document.getElementById("cfgContainers")?.value || "raw, squad1, squad2, squad3";
-      const list = source
-        .split(",")
-        .map(c => c.trim())
-        .filter(Boolean);
+      select.innerHTML = '<option value="">Buscando containers...</option>';
 
-      list.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c;
-        opt.textContent = c;
-        select.appendChild(opt);
-      });
+      let list = [];
+      const manual = currentConfig?.containers ? currentConfig.containers.trim() : "";
 
-      if (!list.includes(activeContainer)) {
-        activeContainer = list[0] || "raw";
+      try {
+        const resp = await fetch("/api/containers?manual=" + encodeURIComponent(manual), {
+          headers: getAuthHeaders()
+        });
+        if (resp.ok) {
+          list = await resp.json();
+        }
+      } catch (err) {
+        console.warn("Aviso ao buscar containers:", err);
       }
-      select.value = activeContainer;
+
+      // Se a API não retornou lista, usa fallback dos containers manuais se informados
+      if (!list || list.length === 0) {
+        if (manual) {
+          list = manual.split(",").map(c => c.trim()).filter(Boolean);
+        }
+      }
+
+      select.innerHTML = "";
+
+      if (list && list.length > 0) {
+        list.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c;
+          opt.textContent = c;
+          select.appendChild(opt);
+        });
+
+        if (preferredContainer && list.includes(preferredContainer)) {
+          activeContainer = preferredContainer;
+        } else if (!list.includes(activeContainer)) {
+          activeContainer = list[0];
+        }
+        select.value = activeContainer;
+      } else {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "Nenhum container encontrado";
+        select.appendChild(opt);
+        activeContainer = "";
+      }
     }
 
     function changeContainer(c) {
@@ -430,6 +467,11 @@ export function getUIHtml(): string {
 
     async function loadDirectory() {
       if (!currentConfig) return;
+      if (!activeContainer) {
+        const tbody = document.getElementById("filesTableBody");
+        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-amber-600 font-medium"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Nenhum container selecionado ou disponível nesta conta.</td></tr>';
+        return;
+      }
       updateBreadcrumbs();
 
       const tbody = document.getElementById("filesTableBody");
@@ -531,8 +573,13 @@ export function getUIHtml(): string {
       renderFilesTable(filtered);
     }
 
-    function refreshCurrentFolder() {
-      loadDirectory();
+    async function refreshCurrentFolder() {
+      if (!activeContainer) {
+        await initContainers();
+      }
+      if (activeContainer) {
+        loadDirectory();
+      }
     }
 
     // PREVIEW DE ARQUIVO

@@ -63,6 +63,21 @@ export default {
             },
           });
         }
+
+        // 0. Listar Containers disponíveis na Storage Account
+        if (url.pathname === "/api/containers" && request.method === "GET") {
+          const manualParam = url.searchParams.get("manual") || "";
+          const fallbackList = manualParam
+            ? manualParam.split(",").map((c) => c.trim()).filter(Boolean)
+            : [];
+          const containers = await client.listContainers(fallbackList);
+          return new Response(JSON.stringify(containers), {
+            headers: {
+              ...corsHeaders(),
+              "Content-Type": "application/json",
+            },
+          });
+        }
         // 1. Listar Blobs e Pastas
         if (url.pathname === "/api/blobs" && request.method === "GET") {
           const container = url.searchParams.get("container") || "raw";

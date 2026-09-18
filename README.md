@@ -36,7 +36,7 @@ Clique no botão abaixo para fazer o deploy automático da aplicação diretamen
    - **Tenant ID**: Directory (tenant) ID no Microsoft Entra ID.
    - **Client ID**: Application (client) ID do seu App Registration.
    - **Client Secret**: O valor do segredo (`Value`) gerado em Certificates & Secrets.
-   - **Containers**: Containers que deseja visualizar, separados por vírgula (ex: `raw, squad1, squad2`).
+   - **Containers (Opcional)**: Pode deixar em branco! A aplicação detecta e lista automaticamente todos os containers da sua conta do Azure. Só preencha se quiser restringir a containers específicos.
 4. Clique em **"Testar Conexão"** para verificar se o Entra ID aceitou suas chaves.
 5. Clique em **"Salvar e Conectar"**.
 

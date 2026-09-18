@@ -93,21 +93,34 @@ export class AzureRestClient {
   }
 
   /**
-   * Valida a conexão testando a obtenção do token.
+   * Valida a conexão testando a obtenção do token e listando os containers da conta.
    */
-  async testConnection(): Promise<{ success: boolean; message: string }> {
+  async testConnection(): Promise<{ success: boolean; message: string; containers?: string[] }> {
     try {
       await this.getAccessToken();
-      return { success: true, message: "Autenticação com Microsoft Entra ID realizada com sucesso!" };
+      const containers = await this.listContainers([]);
+      if (containers.length > 0) {
+        return {
+          success: true,
+          message: `Conexão bem-sucedida! ${containers.length} container(s) detectado(s): ${containers.join(", ")}`,
+          containers,
+        };
+      }
+      return {
+        success: true,
+        message: "Autenticação com Microsoft Entra ID realizada com sucesso!",
+        containers: [],
+      };
     } catch (err: any) {
       return { success: false, message: err.message || String(err) };
     }
   }
 
   /**
-   * Lista containers disponíveis ou faz fallback para os configurados.
+   * Lista containers disponíveis na Storage Account via Azure REST API.
+   * Faz fallback para a lista manual caso a listagem global não tenha permissão na conta.
    */
-  async listContainers(fallbackList: string[] = ["raw", "squad1", "squad2", "squad3"]): Promise<string[]> {
+  async listContainers(fallbackList: string[] = []): Promise<string[]> {
     try {
       const headers = await this.getHeaders();
       const url = `${this.baseUrl}/?comp=list`;
@@ -121,11 +134,13 @@ export class AzureRestClient {
         if (containerItems) {
           const list = Array.isArray(containerItems) ? containerItems : [containerItems];
           const found = list.map((c: any) => c.Name).filter(Boolean);
-          return Array.from(new Set([...found, ...fallbackList]));
+          if (found.length > 0) {
+            return found;
+          }
         }
       }
     } catch {
-      // Ignora erro de nível de conta e usa lista padrão
+      // Caso não tenha permissão de listar a conta inteira, usa o fallback manual
     }
     return fallbackList;
   }
