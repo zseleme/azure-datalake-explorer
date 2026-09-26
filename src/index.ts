@@ -91,7 +91,7 @@ export default {
           });
         }
 
-        // 2. Pré-visualização (Amostra até 2MB)
+        // 2. Pré-visualização (Amostra até 2MB para texto/csv/json ou streaming completo até 50MB para Parquet)
         if (url.pathname === "/api/preview" && request.method === "GET") {
           const container = url.searchParams.get("container");
           const blob = url.searchParams.get("blob");
@@ -99,11 +99,12 @@ export default {
             return new Response("Parâmetros 'container' e 'blob' são obrigatórios.", { status: 400, headers: corsHeaders() });
           }
 
-          // Range de até 2MB para preview rápido
-          const resp = await client.downloadBlobStream(container, blob, "bytes=0-2097151");
+          const isParquet = blob.toLowerCase().endsWith(".parquet");
+          // Para Parquet, streaming completo sem range para leitura do FileMetaData no rodapé do arquivo
+          const resp = await client.downloadBlobStream(container, blob, isParquet ? undefined : "bytes=0-2097151");
           const headers = new Headers(corsHeaders());
-          const ct = resp.headers.get("content-type");
-          if (ct) headers.set("Content-Type", ct);
+          const ct = isParquet ? "application/vnd.apache.parquet" : (resp.headers.get("content-type") || "application/octet-stream");
+          headers.set("Content-Type", ct);
 
           return new Response(resp.body, {
             status: 200,
@@ -176,6 +177,43 @@ export default {
           return new Response(JSON.stringify({ success: true, message: "Arquivo excluído com sucesso" }), {
             headers: { ...corsHeaders(), "Content-Type": "application/json" },
           });
+        }
+
+        // 7. Excluir Pasta Virtual Recursivamente
+        if (url.pathname === "/api/delete-folder" && request.method === "DELETE") {
+          let container = url.searchParams.get("container");
+          let folderPath = url.searchParams.get("folderPath");
+
+          if (!container || !folderPath) {
+            try {
+              const body: any = await request.json();
+              if (body) {
+                container = container || body.container;
+                folderPath = folderPath || body.folderPath;
+              }
+            } catch {
+              // Body opcional se enviado por query param
+            }
+          }
+
+          if (!container || !folderPath) {
+            return new Response("Parâmetros 'container' e 'folderPath' são obrigatórios.", {
+              status: 400,
+              headers: corsHeaders(),
+            });
+          }
+
+          const deletedCount = await client.deleteFolder(container, folderPath);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: `Pasta excluída com sucesso (${deletedCount} arquivo(s) removido(s)).`,
+              deletedCount,
+            }),
+            {
+              headers: { ...corsHeaders(), "Content-Type": "application/json" },
+            }
+          );
         }
 
         return new Response("Rota não encontrada.", { status: 404, headers: corsHeaders() });

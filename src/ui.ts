@@ -504,10 +504,28 @@ export function getUIHtml(): string {
           foldersSection.classList.remove("hidden");
           foldersGrid.innerHTML = "";
           folders.forEach(f => {
-            const card = document.createElement("button");
-            card.className = "flex items-center space-x-2 p-3 rounded-lg border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 text-left transition-all group";
-            card.innerHTML = '<i class="fa-solid fa-folder text-yellow-500 text-lg group-hover:scale-110 transition-transform"></i><span class="text-xs font-semibold text-slate-800 truncate">' + f.name + '</span>';
-            card.onclick = () => { currentPrefix = f.fullPath; loadDirectory(); };
+            const card = document.createElement("div");
+            card.className = "flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all group bg-white shadow-xs";
+            
+            const navBtn = document.createElement("button");
+            navBtn.type = "button";
+            navBtn.className = "flex items-center space-x-2 flex-1 min-w-0 text-left py-0.5";
+            navBtn.title = f.name;
+            navBtn.innerHTML = '<i class="fa-solid fa-folder text-yellow-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-slate-800 truncate">' + escapeHtml(f.name) + '</span>';
+            navBtn.onclick = () => { currentPrefix = f.fullPath; loadDirectory(); };
+
+            const delBtn = document.createElement("button");
+            delBtn.type = "button";
+            delBtn.className = "p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors shrink-0 ml-1";
+            delBtn.title = "Excluir pasta '" + f.name + "'";
+            delBtn.innerHTML = '<i class="fa-regular fa-trash-can text-xs"></i>';
+            delBtn.onclick = (e) => {
+              e.stopPropagation();
+              confirmDeleteFolder(f.fullPath, f.name);
+            };
+
+            card.appendChild(navBtn);
+            card.appendChild(delBtn);
             foldersGrid.appendChild(card);
           });
         }
@@ -609,7 +627,10 @@ export function getUIHtml(): string {
         const ext = name.split(".").pop().toLowerCase();
         const contentType = resp.headers.get("content-type") || "";
 
-        if (ext === "csv" || ext === "tsv") {
+        if (ext === "parquet") {
+          const arrayBuffer = await resp.arrayBuffer();
+          await renderParquetPreview(arrayBuffer, content, title, subtitle, fullPath, name);
+        } else if (ext === "csv" || ext === "tsv") {
           const text = await resp.text();
           renderCsvPreview(text, content, ext === "tsv" ? "\t" : ",");
         } else if (ext === "json") {
@@ -667,6 +688,122 @@ export function getUIHtml(): string {
       document.getElementById("previewContent").innerHTML = "";
     }
 
+    // PARQUET PREVIEW & DECODING (CLIENT-SIDE)
+    let hyparquetModule = null;
+    let compressorsModule = null;
+
+    async function loadParquetModules() {
+      if (!hyparquetModule) {
+        hyparquetModule = await import('https://cdn.jsdelivr.net/npm/hyparquet/+esm');
+      }
+      if (!compressorsModule) {
+        try {
+          const comp = await import('https://cdn.jsdelivr.net/npm/hyparquet-compressors/+esm');
+          compressorsModule = comp.compressors;
+        } catch (e) {
+          console.warn("Módulo opcional hyparquet-compressors não carregado:", e);
+        }
+      }
+      return { hyparquet: hyparquetModule, compressors: compressorsModule };
+    }
+
+    async function renderParquetPreview(arrayBuffer, container, titleEl, subtitleEl, fullPath, name) {
+      try {
+        const { hyparquet, compressors } = await loadParquetModules();
+
+        // Leitura rápida do FileMetaData no rodapé (< 500 ms)
+        const metadata = hyparquet.parquetMetadata(arrayBuffer);
+        const schema = hyparquet.parquetSchema(metadata);
+        const allColumns = schema.children ? schema.children.map(e => e.element.name) : [];
+        const totalCols = allColumns.length;
+        const totalRows = Number(metadata.num_rows || 0);
+
+        // Atualização imediata do cabeçalho com badges (< 500 ms)
+        subtitleEl.innerHTML += ' <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 ml-2"><i class="fa-solid fa-table-columns mr-1"></i>' + totalCols + ' colunas</span>' +
+          ' <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-1"><i class="fa-solid fa-bars mr-1"></i>' + totalRows.toLocaleString() + ' linhas</span>';
+
+        // Limita exibição a 100 colunas (C6) e 100 linhas (R-2)
+        const displayedColumns = allColumns.slice(0, 100);
+        const rowsToRead = Math.min(totalRows, 100);
+
+        const readOptions = {
+          file: arrayBuffer,
+          columns: displayedColumns,
+          rowStart: 0,
+          rowEnd: rowsToRead
+        };
+        if (compressors) {
+          readOptions.compressors = compressors;
+        }
+
+        const rows = await hyparquet.parquetReadObjects(readOptions);
+
+        if (!rows || rows.length === 0) {
+          container.innerHTML = '<p class="text-slate-400 text-sm p-4">Arquivo Parquet sem registros ou vazio.</p>';
+          return;
+        }
+
+        let html = '<div class="overflow-x-auto border border-slate-200 rounded-xl custom-scroll max-h-[65vh]">';
+        html += '<table class="min-w-full divide-y divide-slate-200 text-xs text-left">';
+        html += '<thead class="bg-slate-100 font-bold text-slate-700 sticky top-0 z-10 shadow-xs"><tr>';
+        html += '<th class="px-3 py-2.5 w-12 text-slate-400 text-center font-mono">#</th>';
+
+        displayedColumns.forEach(col => {
+          html += '<th class="px-4 py-2.5 whitespace-nowrap border-b border-slate-200 bg-slate-100">' + escapeHtml(col) + '</th>';
+        });
+        html += '</tr></thead><tbody class="divide-y divide-slate-100 bg-white font-mono">';
+
+        rows.forEach((row, idx) => {
+          html += '<tr class="hover:bg-blue-50/40 transition-colors">';
+          html += '<td class="px-3 py-2 text-center text-slate-400 whitespace-nowrap text-[11px] font-sans">' + (idx + 1) + '</td>';
+          displayedColumns.forEach(col => {
+            const val = row[col];
+            let displayVal = "";
+            if (val === null || val === undefined) {
+              displayVal = '<span class="text-slate-300 italic">null</span>';
+            } else if (typeof val === "object") {
+              displayVal = escapeHtml(JSON.stringify(val));
+            } else {
+              displayVal = escapeHtml(String(val));
+            }
+            html += '<td class="px-4 py-2 whitespace-nowrap text-slate-600 max-w-xs truncate" title="' + escapeQuotes(String(val ?? '')) + '">' + displayVal + '</td>';
+          });
+          html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+
+        let notices = [];
+        if (totalCols > 100) {
+          notices.push('Exibindo as primeiras 100 colunas (de ' + totalCols + ') para otimização de navegação.');
+        }
+        if (totalRows > 100) {
+          notices.push('Amostra limitada às primeiras 100 linhas (de ' + totalRows.toLocaleString() + ').');
+        } else {
+          notices.push('Exibindo todos os ' + totalRows + ' registros.');
+        }
+
+        html += '<div class="mt-3 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">';
+        html += '<span><i class="fa-solid fa-circle-info mr-1 text-blue-500"></i>' + notices.join(' ') + '</span>';
+        html += '<span class="text-slate-500 font-sans"><i class="fa-solid fa-lock mr-1"></i>Visualização somente leitura</span>';
+        html += '</div>';
+
+        container.innerHTML = html;
+
+      } catch (err) {
+        console.error("Erro ao decodificar arquivo Parquet:", err);
+        container.innerHTML = '<div class="p-6 bg-red-50 border border-red-200 rounded-xl text-center">' +
+          '<i class="fa-solid fa-triangle-exclamation text-3xl text-red-500 mb-2"></i>' +
+          '<h4 class="font-bold text-red-800 text-sm mb-1">Não foi possível decodificar a pré-visualização Parquet</h4>' +
+          '<p class="text-xs text-red-600 mb-4 max-w-md mx-auto">' + escapeHtml(err.message || String(err)) + '</p>' +
+          '<div class="flex justify-center">' +
+          '<button onclick="downloadFileDirect(\'' + escapeQuotes(fullPath) + '\', \'' + escapeQuotes(name) + '\')" class="px-4 py-2 text-xs font-semibold text-white azure-blue azure-blue-hover rounded-lg shadow-sm">' +
+          '<i class="fa-solid fa-download mr-1.5"></i> Baixar Arquivo Completo' +
+          '</button>' +
+          '</div></div>';
+      }
+    }
+
     // DOWNLOAD DIRETO
     async function downloadFileDirect(fullPath, name) {
       const url = "/api/download?container=" + encodeURIComponent(activeContainer) + "&blob=" + encodeURIComponent(fullPath);
@@ -711,6 +848,40 @@ export function getUIHtml(): string {
         }
       } catch (err) {
         alert("Erro de conexão: " + err.message);
+      }
+    }
+
+    // EXCLUIR PASTA RECURSIVAMENTE
+    async function confirmDeleteFolder(fullPath, name) {
+      const msg = "ATENÇÃO: Deseja realmente excluir a pasta '" + name + "' e TODOS os seus arquivos e subpastas?\\n\\nEsta operação é permanente e removerá todos os dados sob o caminho:\\n" + fullPath;
+      if (!confirm(msg)) return;
+
+      const toast = showToast("Excluindo pasta '" + name + "'...", "info");
+      try {
+        const resp = await fetch("/api/delete-folder", {
+          method: "DELETE",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            container: activeContainer,
+            folderPath: fullPath
+          })
+        });
+
+        toast.remove();
+        if (resp.ok) {
+          const res = await resp.json();
+          showToast(res.message || "Pasta excluída com sucesso!", "success");
+          await loadDirectory();
+        } else {
+          const errText = await resp.text();
+          alert("Erro ao excluir pasta: " + errText);
+        }
+      } catch (err) {
+        toast.remove();
+        alert("Erro de conexão ao excluir pasta: " + err.message);
       }
     }
 
@@ -852,7 +1023,8 @@ export function getUIHtml(): string {
 
     function getFileIcon(name) {
       const ext = name.split(".").pop().toLowerCase();
-      if (["csv", "tsv", "xlsx", "parquet"].includes(ext)) return "fa-solid fa-table text-emerald-600";
+      if (ext === "parquet") return "fa-solid fa-table-cells text-emerald-600";
+      if (["csv", "tsv", "xlsx"].includes(ext)) return "fa-solid fa-table text-emerald-600";
       if (["json", "xml", "yaml", "yml"].includes(ext)) return "fa-solid fa-code text-amber-600";
       if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "fa-regular fa-image text-purple-600";
       if (["txt", "log", "md", "sql", "py"].includes(ext)) return "fa-regular fa-file-lines text-blue-600";

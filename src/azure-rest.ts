@@ -299,5 +299,55 @@ export class AzureRestClient {
       throw new Error(`Erro ao excluir blob (${resp.status}): ${err}`);
     }
   }
+
+  /**
+   * Exclui recursivamente todos os blobs sob um prefixo de pasta virtual
+   */
+  async deleteFolder(container: string, folderPath: string): Promise<number> {
+    if (!folderPath.endsWith("/")) {
+      folderPath += "/";
+    }
+
+    let deletedCount = 0;
+    let continuationMarker: string | null = null;
+
+    do {
+      const headers = await this.getHeaders();
+      const url = new URL(`${this.baseUrl}/${encodeURIComponent(container)}`);
+      url.searchParams.set("restype", "container");
+      url.searchParams.set("comp", "list");
+      url.searchParams.set("prefix", folderPath);
+      if (continuationMarker) {
+        url.searchParams.set("marker", continuationMarker);
+      }
+
+      const resp = await fetch(url.toString(), { headers });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Erro ao listar itens para exclusão da pasta '${folderPath}' (${resp.status}): ${errText}`);
+      }
+
+      const xmlText = await resp.text();
+      const parsed = xmlParser.parse(xmlText);
+      const blobsNode = parsed?.EnumerationResults?.Blobs;
+      const nextMarkerRaw = parsed?.EnumerationResults?.NextMarker;
+      continuationMarker = (typeof nextMarkerRaw === "string" && nextMarkerRaw.trim().length > 0)
+        ? nextMarkerRaw.trim()
+        : null;
+
+      if (blobsNode?.Blob) {
+        const blobItems = Array.isArray(blobsNode.Blob) ? blobsNode.Blob : [blobsNode.Blob];
+        for (const b of blobItems) {
+          const blobName = b?.Name;
+          if (blobName) {
+            await this.deleteBlob(container, blobName);
+            deletedCount++;
+          }
+        }
+      }
+    } while (continuationMarker);
+
+    return deletedCount;
+  }
 }
 

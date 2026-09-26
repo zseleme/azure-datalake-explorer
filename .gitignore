@@ -4,3 +4,9 @@ node_modules/
 .env
 dist/
 
+.agents/
+.claude/
+.cvg/
+.grok/
+cvg/
+
