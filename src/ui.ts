@@ -766,7 +766,7 @@ export function getUIHtml(): string {
             } else {
               displayVal = escapeHtml(String(val));
             }
-            html += '<td class="px-4 py-2 whitespace-nowrap text-slate-600 max-w-xs truncate" title="' + escapeQuotes(String(val ?? '')) + '">' + displayVal + '</td>';
+            html += '<td class="px-4 py-2 whitespace-nowrap text-slate-600 max-w-xs truncate" title="' + escapeHtml(String(val ?? '')) + '">' + displayVal + '</td>';
           });
           html += '</tr>';
         });
@@ -792,15 +792,34 @@ export function getUIHtml(): string {
 
       } catch (err) {
         console.error("Erro ao decodificar arquivo Parquet:", err);
-        container.innerHTML = '<div class="p-6 bg-red-50 border border-red-200 rounded-xl text-center">' +
-          '<i class="fa-solid fa-triangle-exclamation text-3xl text-red-500 mb-2"></i>' +
-          '<h4 class="font-bold text-red-800 text-sm mb-1">Não foi possível decodificar a pré-visualização Parquet</h4>' +
-          '<p class="text-xs text-red-600 mb-4 max-w-md mx-auto">' + escapeHtml(err.message || String(err)) + '</p>' +
-          '<div class="flex justify-center">' +
-          '<button onclick="downloadFileDirect(\'' + escapeQuotes(fullPath) + '\', \'' + escapeQuotes(name) + '\')" class="px-4 py-2 text-xs font-semibold text-white azure-blue azure-blue-hover rounded-lg shadow-sm">' +
-          '<i class="fa-solid fa-download mr-1.5"></i> Baixar Arquivo Completo' +
-          '</button>' +
-          '</div></div>';
+        container.innerHTML = "";
+        const errBox = document.createElement("div");
+        errBox.className = "p-6 bg-red-50 border border-red-200 rounded-xl text-center";
+
+        const icon = document.createElement("i");
+        icon.className = "fa-solid fa-triangle-exclamation text-3xl text-red-500 mb-2";
+        errBox.appendChild(icon);
+
+        const h4 = document.createElement("h4");
+        h4.className = "font-bold text-red-800 text-sm mb-1";
+        h4.textContent = "Não foi possível decodificar a pré-visualização Parquet";
+        errBox.appendChild(h4);
+
+        const p = document.createElement("p");
+        p.className = "text-xs text-red-600 mb-4 max-w-md mx-auto";
+        p.textContent = err.message || String(err);
+        errBox.appendChild(p);
+
+        const btnDiv = document.createElement("div");
+        btnDiv.className = "flex justify-center";
+        const dlBtn = document.createElement("button");
+        dlBtn.className = "px-4 py-2 text-xs font-semibold text-white azure-blue azure-blue-hover rounded-lg shadow-sm";
+        dlBtn.innerHTML = '<i class="fa-solid fa-download mr-1.5"></i> Baixar Arquivo Completo';
+        dlBtn.onclick = () => downloadFileDirect(fullPath, name);
+        btnDiv.appendChild(dlBtn);
+        errBox.appendChild(btnDiv);
+
+        container.appendChild(errBox);
       }
     }
 
