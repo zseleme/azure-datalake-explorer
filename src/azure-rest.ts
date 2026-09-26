@@ -201,6 +201,11 @@ export class AzureRestClient {
         const displayName = fullPath.slice(prefix.length);
         if (!displayName) continue;
 
+        // Ocultar marcadores internos de pasta (.keep)
+        if (displayName === ".keep" || displayName.endsWith("/.keep")) {
+          continue;
+        }
+
         const size = Number(b?.Properties?.["Content-Length"] || 0);
         const lastModified = b?.Properties?.["Last-Modified"] || "";
         const contentType = b?.Properties?.["Content-Type"];
@@ -273,11 +278,71 @@ export class AzureRestClient {
   }
 
   /**
-   * Cria uma pasta virtual criando um arquivo marcador .keep
+   * Exclui um diretório no Azure Data Lake Storage Gen2 (HNS) usando a DFS REST API
+   */
+  async deleteDfsPath(container: string, path: string): Promise<boolean> {
+    try {
+      const cleanPath = path.replace(/^\/+|\/+$/g, "");
+      if (!cleanPath) return false;
+
+      const encodedPath = cleanPath.split("/").map(encodeURIComponent).join("/");
+      let continuationToken: string | null = null;
+      let success = false;
+
+      do {
+        const headers = await this.getHeaders();
+        const url = new URL(`https://${this.creds.storageAccount}.dfs.core.windows.net/${encodeURIComponent(container)}/${encodedPath}`);
+        url.searchParams.set("recursive", "true");
+        if (continuationToken) {
+          url.searchParams.set("continuation", continuationToken);
+        }
+
+        const resp = await fetch(url.toString(), {
+          method: "DELETE",
+          headers,
+        });
+
+        if (resp.ok || resp.status === 404) {
+          success = true;
+          continuationToken = resp.headers.get("x-ms-continuation");
+        } else {
+          break;
+        }
+      } while (continuationToken);
+
+      return success;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Cria uma pasta virtual ou diretório nativo no ADLS Gen2
    */
   async createFolder(container: string, folderPath: string): Promise<void> {
-    if (!folderPath.endsWith("/")) folderPath += "/";
-    const markerName = `${folderPath}.keep`;
+    const cleanPath = folderPath.replace(/^\/+|\/+$/g, "");
+    if (!cleanPath) return;
+
+    // 1. Tentar criar como diretório nativo no ADLS Gen2 (DFS API)
+    try {
+      const headers = await this.getHeaders();
+      const encodedPath = cleanPath.split("/").map(encodeURIComponent).join("/");
+      const dfsUrl = `https://${this.creds.storageAccount}.dfs.core.windows.net/${encodeURIComponent(container)}/${encodedPath}?resource=directory`;
+
+      const resp = await fetch(dfsUrl, {
+        method: "PUT",
+        headers,
+      });
+
+      if (resp.ok) {
+        return;
+      }
+    } catch {
+      // Fallback para Blob Storage padrão
+    }
+
+    // 2. Fallback: marcador .keep para Storage padrão (sem HNS)
+    const markerName = `${cleanPath}/.keep`;
     await this.uploadBlob(container, markerName, new Uint8Array(0));
   }
 
@@ -301,14 +366,26 @@ export class AzureRestClient {
   }
 
   /**
-   * Exclui recursivamente todos os blobs sob um prefixo de pasta virtual
+   * Exclui recursivamente todos os blobs sob um prefixo de pasta virtual e o diretório no ADLS Gen2
    */
   async deleteFolder(container: string, folderPath: string): Promise<number> {
-    if (!folderPath.endsWith("/")) {
-      folderPath += "/";
-    }
+    const cleanPath = folderPath.replace(/^\/+|\/+$/g, "");
+    if (!cleanPath) return 0;
 
     let deletedCount = 0;
+
+    // 1. Tentar exclusão atômica recursiva no Azure Data Lake Storage Gen2 (DFS API para contas HNS)
+    try {
+      const dfsSuccess = await this.deleteDfsPath(container, cleanPath);
+      if (dfsSuccess) {
+        deletedCount++;
+      }
+    } catch {
+      // Ignora falha de DFS se não for conta ADLS Gen2
+    }
+
+    // 2. Varrer e excluir todos os blobs sob o prefixo via Blob REST API (para contas padrão ou itens remanescentes)
+    const prefixWithSlash = cleanPath + "/";
     let continuationMarker: string | null = null;
 
     do {
@@ -316,15 +393,14 @@ export class AzureRestClient {
       const url = new URL(`${this.baseUrl}/${encodeURIComponent(container)}`);
       url.searchParams.set("restype", "container");
       url.searchParams.set("comp", "list");
-      url.searchParams.set("prefix", folderPath);
+      url.searchParams.set("prefix", prefixWithSlash);
       if (continuationMarker) {
         url.searchParams.set("marker", continuationMarker);
       }
 
       const resp = await fetch(url.toString(), { headers });
       if (!resp.ok) {
-        const errText = await resp.text();
-        throw new Error(`Erro ao listar itens para exclusão da pasta '${folderPath}' (${resp.status}): ${errText}`);
+        break;
       }
 
       const xmlText = await resp.text();
@@ -340,12 +416,28 @@ export class AzureRestClient {
         for (const b of blobItems) {
           const blobName = b?.Name;
           if (blobName) {
-            await this.deleteBlob(container, blobName);
-            deletedCount++;
+            try {
+              await this.deleteBlob(container, blobName);
+              deletedCount++;
+            } catch {}
           }
         }
       }
     } while (continuationMarker);
+
+    // 3. Excluir explicitamente qualquer marcador ou blob com o nome da pasta (com ou sem barra)
+    const candidates = [
+      cleanPath,
+      prefixWithSlash,
+      `${prefixWithSlash}.keep`,
+      `${cleanPath}.keep`
+    ];
+
+    for (const item of candidates) {
+      try {
+        await this.deleteBlob(container, item);
+      } catch {}
+    }
 
     return deletedCount;
   }
