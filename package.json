@@ -1,12 +1,16 @@
 {
   "name": "azure-datalake-explorer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Azure Data Lake Storage Explorer rodando no Cloudflare Workers com credenciais salvas no navegador",
   "main": "src/index.ts",
   "scripts": {
+    "version:gen": "node scripts/build-version.js",
+    "predev": "node scripts/build-version.js",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "build": "tsc --noEmit"
+    "prebuild": "node scripts/build-version.js",
+    "build": "tsc --noEmit",
+    "predeploy": "node scripts/build-version.js",
+    "deploy": "wrangler deploy"
   },
   "keywords": [
     "cloudflare",
