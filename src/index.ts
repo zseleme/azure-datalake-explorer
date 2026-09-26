@@ -6,6 +6,7 @@ function corsHeaders(): HeadersInit {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "*",
+    "Access-Control-Expose-Headers": "Content-Type, Content-Length, Last-Modified, ETag, Content-Disposition, x-ms-request-id, x-ms-version, x-ms-blob-type",
   };
 }
 
@@ -105,6 +106,10 @@ export default {
           const headers = new Headers(corsHeaders());
           const ct = isParquet ? "application/vnd.apache.parquet" : (resp.headers.get("content-type") || "application/octet-stream");
           headers.set("Content-Type", ct);
+          if (resp.headers.get("etag")) headers.set("ETag", resp.headers.get("etag")!);
+          if (resp.headers.get("last-modified")) headers.set("Last-Modified", resp.headers.get("last-modified")!);
+          if (resp.headers.get("content-length")) headers.set("Content-Length", resp.headers.get("content-length")!);
+          if (resp.headers.get("x-ms-blob-type")) headers.set("x-ms-blob-type", resp.headers.get("x-ms-blob-type")!);
 
           return new Response(resp.body, {
             status: 200,
@@ -209,6 +214,29 @@ export default {
               success: true,
               message: `Pasta excluída com sucesso (${deletedCount} arquivo(s) removido(s)).`,
               deletedCount,
+            }),
+            {
+              headers: { ...corsHeaders(), "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        // 8. Renomear ou Mover Arquivo ou Pasta
+        if (url.pathname === "/api/rename" && request.method === "POST") {
+          const body: any = await request.json();
+          const { container, sourcePath, newPath } = body || {};
+          if (!container || !sourcePath || !newPath) {
+            return new Response("Parâmetros 'container', 'sourcePath' e 'newPath' são obrigatórios.", {
+              status: 400,
+              headers: corsHeaders(),
+            });
+          }
+
+          await client.renamePath(container, sourcePath, newPath);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: "Item renomeado/movido com sucesso.",
             }),
             {
               headers: { ...corsHeaders(), "Content-Type": "application/json" },

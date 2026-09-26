@@ -441,5 +441,83 @@ export class AzureRestClient {
 
     return deletedCount;
   }
+
+  /**
+   * Renomeia ou move um arquivo ou pasta no ADLS Gen2 (ou via copy+delete em Blob padrão)
+   */
+  async renamePath(container: string, sourcePath: string, newPath: string): Promise<void> {
+    const cleanSource = sourcePath.replace(/^\/+|\/+$/g, "");
+    const cleanNew = newPath.replace(/^\/+|\/+$/g, "");
+    if (!cleanSource || !cleanNew) {
+      throw new Error("Caminho de origem e destino inválidos.");
+    }
+    if (cleanSource === cleanNew) return;
+
+    // 1. Tentar renomeação atômica nativa ADLS Gen2 (DFS API)
+    try {
+      const headers = await this.getHeaders({
+        "x-ms-rename-source": `/${encodeURIComponent(container)}/${cleanSource.split("/").map(encodeURIComponent).join("/")}`,
+      });
+
+      const encodedNew = cleanNew.split("/").map(encodeURIComponent).join("/");
+      const dfsUrl = `https://${this.creds.storageAccount}.dfs.core.windows.net/${encodeURIComponent(container)}/${encodedNew}?mode=legacy`;
+
+      const resp = await fetch(dfsUrl, {
+        method: "PUT",
+        headers,
+      });
+
+      if (resp.ok || resp.status === 201) {
+        return;
+      }
+    } catch {
+      // Fallback para Blob copy+delete caso DFS não esteja habilitado
+    }
+
+    // 2. Fallback para Blob Storage padrão (Copy Blob + Delete Blob)
+    const isFolder = sourcePath.endsWith("/") || newPath.endsWith("/");
+    if (!isFolder) {
+      const headers = await this.getHeaders({
+        "x-ms-copy-source": `${this.baseUrl}/${encodeURIComponent(container)}/${cleanSource.split("/").map(encodeURIComponent).join("/")}`,
+      });
+      const copyUrl = `${this.baseUrl}/${encodeURIComponent(container)}/${cleanNew.split("/").map(encodeURIComponent).join("/")}`;
+      const copyResp = await fetch(copyUrl, {
+        method: "PUT",
+        headers,
+      });
+
+      if (!copyResp.ok) {
+        const errText = await copyResp.text();
+        throw new Error(`Falha ao copiar arquivo para novo destino (${copyResp.status}): ${errText}`);
+      }
+
+      await this.deleteBlob(container, cleanSource);
+    } else {
+      // Renomear pasta em Blob Storage padrão: varre itens sob prefixo e copia cada um
+      const prefixWithSlash = cleanSource + "/";
+      const newPrefixWithSlash = cleanNew + "/";
+      const listRes = await this.listDirectory(container, prefixWithSlash);
+      
+      for (const file of listRes.files) {
+        const relativeName = file.fullPath.slice(prefixWithSlash.length);
+        const targetFullPath = newPrefixWithSlash + relativeName;
+        const headers = await this.getHeaders({
+          "x-ms-copy-source": `${this.baseUrl}/${encodeURIComponent(container)}/${file.fullPath.split("/").map(encodeURIComponent).join("/")}`,
+        });
+        const copyUrl = `${this.baseUrl}/${encodeURIComponent(container)}/${targetFullPath.split("/").map(encodeURIComponent).join("/")}`;
+        const copyResp = await fetch(copyUrl, { method: "PUT", headers });
+        if (copyResp.ok) {
+          await this.deleteBlob(container, file.fullPath);
+        }
+      }
+      // Remove marcador antigo
+      await this.deleteBlob(container, `${cleanSource}/.keep`).catch(() => {});
+      await this.deleteBlob(container, cleanSource).catch(() => {});
+      // Cria marcador na nova pasta se vazia
+      if (listRes.files.length === 0) {
+        await this.createFolder(container, cleanNew);
+      }
+    }
+  }
 }
 
