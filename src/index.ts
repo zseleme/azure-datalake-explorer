@@ -1,16 +1,12 @@
 import { AzureRestClient, AzureCredentials } from "./azure-rest";
 import { getUIHtml } from "./ui";
-import { APP_VERSION } from "./version";
 
 function corsHeaders(): HeadersInit {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "*",
-    "Access-Control-Expose-Headers": "Content-Type, Content-Length, Last-Modified, ETag, Content-Disposition, x-ms-request-id, x-ms-version, x-ms-blob-type, X-App-Version, X-Git-Commit, X-Build-Time",
-    "X-App-Version": APP_VERSION.version,
-    "X-Git-Commit": APP_VERSION.gitCommit,
-    "X-Build-Time": APP_VERSION.buildTime,
+    "Access-Control-Expose-Headers": "Content-Type, Content-Length, Last-Modified, ETag, Content-Disposition, x-ms-request-id, x-ms-version, x-ms-blob-type",
   };
 }
 
@@ -35,26 +31,12 @@ export default {
       return new Response(null, { headers: corsHeaders() });
     }
 
-    // Rota pública de versão / healthcheck (sem necessidade de credenciais Azure)
-    if (url.pathname === "/api/version" || url.pathname === "/version") {
-      return new Response(JSON.stringify(APP_VERSION, null, 2), {
-        headers: {
-          ...corsHeaders(),
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      });
-    }
-
     // Servir a interface Web SPA no caminho raiz
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(getUIHtml(APP_VERSION), {
+      return new Response(getUIHtml(), {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-cache",
-          "X-App-Version": APP_VERSION.version,
-          "X-Git-Commit": APP_VERSION.gitCommit,
-          "X-Build-Time": APP_VERSION.buildTime,
         },
       });
     }

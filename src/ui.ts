@@ -1,13 +1,4 @@
-import { VersionInfo, APP_VERSION } from "./version";
-
-export function getUIHtml(versionInfo: VersionInfo = APP_VERSION): string {
-  const version = versionInfo.version || "1.1.0";
-  const commit = versionInfo.gitCommit || "dev";
-  const commitFull = versionInfo.gitCommitFull || "";
-  const branch = versionInfo.gitBranch || "main";
-  const buildDate = versionInfo.buildDateFormatted || "";
-  const commitMsg = versionInfo.commitMessage || "";
-
+export function getUIHtml(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -40,13 +31,7 @@ export function getUIHtml(versionInfo: VersionInfo = APP_VERSION): string {
       <div class="flex items-center space-x-3">
         <i class="fa-solid fa-cloud text-2xl azure-text"></i>
         <div>
-          <div class="flex items-center space-x-2">
-            <h1 class="font-bold text-lg leading-tight text-slate-900 dark:text-slate-100">Azure Data Lake Explorer</h1>
-            <button onclick="openVersionModal()" title="Ver detalhes do deploy" class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/80 transition-colors">
-              <i class="fa-solid fa-code-commit text-[9px]"></i>
-              <span>v${version} (${commit})</span>
-            </button>
-          </div>
+          <h1 class="font-bold text-lg leading-tight text-slate-900 dark:text-slate-100">Azure Data Lake Explorer</h1>
           <p class="text-xs text-slate-500 dark:text-slate-400" id="accountBadge">Não configurado</p>
         </div>
       </div>
@@ -248,24 +233,6 @@ export function getUIHtml(versionInfo: VersionInfo = APP_VERSION): string {
 
   </main>
 
-  <!-- FOOTER COM CONTROLE DE VERSÃO -->
-  <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xs py-3 transition-colors duration-150">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
-      <div class="flex items-center space-x-2">
-        <i class="fa-solid fa-cloud text-blue-500 text-xs"></i>
-        <span>Azure Data Lake Explorer • Edge Proxy Stateless</span>
-      </div>
-      <div class="flex items-center space-x-3">
-        <button onclick="openVersionModal()" class="hover:text-blue-600 dark:hover:text-blue-400 font-mono text-[11px] transition-colors flex items-center space-x-1.5" title="Ver controle de versão e deploy">
-          <i class="fa-solid fa-circle-check text-emerald-500 text-[10px]"></i>
-          <span>Deploy v${version} (${commit})</span>
-          <span class="text-slate-300 dark:text-slate-700">•</span>
-          <span>${buildDate}</span>
-        </button>
-      </div>
-    </div>
-  </footer>
-
   <!-- MODAL: PREVIEW & DATA DISCOVERY -->
   <div id="previewModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 hidden">
     <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-6xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-150">
@@ -370,71 +337,6 @@ export function getUIHtml(versionInfo: VersionInfo = APP_VERSION): string {
         </button>
         <button type="button" onclick="submitRename()" id="renameSubmitBtn" class="px-4 py-2 text-xs font-semibold text-white azure-blue azure-blue-hover rounded-lg shadow-sm">
           Salvar Alteração
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: DETALHES DA VERSÃO E DEPLOY -->
-  <div id="versionModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 transition-colors duration-150">
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <i class="fa-solid fa-server text-sm"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900 dark:text-slate-100 text-base">Informações do Deploy</h3>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400">Controle de versão no Cloudflare Workers</p>
-          </div>
-        </div>
-        <button onclick="closeVersionModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-
-      <div class="space-y-2.5 mb-5 text-xs">
-        <div class="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">Versão da Aplicação:</span>
-          <span class="font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/80 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900 text-xs">v${version}</span>
-        </div>
-
-        <div class="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">Commit Git:</span>
-          <div class="flex items-center space-x-1.5 font-mono text-slate-800 dark:text-slate-200">
-            <span title="${commitFull}">${commit}</span>
-            <button onclick="copyToClipboard('${commitFull || commit}')" title="Copiar hash completo" class="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
-              <i class="fa-regular fa-copy"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">Branch Git:</span>
-          <span class="font-mono text-slate-800 dark:text-slate-200">${branch}</span>
-        </div>
-
-        <div class="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">Data do Build/Deploy:</span>
-          <span class="font-mono text-slate-800 dark:text-slate-200">${buildDate}</span>
-        </div>
-
-        ${commitMsg ? `
-        <div class="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
-          <span class="text-slate-500 dark:text-slate-400 block font-medium mb-1">Último Commit:</span>
-          <span class="font-mono text-slate-700 dark:text-slate-300 text-[11px] block truncate" title="${commitMsg}">${commitMsg}</span>
-        </div>
-        ` : ''}
-
-        <div id="versionCheckStatus" class="hidden p-3 rounded-xl text-xs font-medium"></div>
-      </div>
-
-      <div class="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
-        <button type="button" onclick="checkRemoteVersion()" id="btnCheckVersion" class="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-700 flex items-center">
-          <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Checar Servidor
-        </button>
-        <button type="button" onclick="closeVersionModal()" class="px-4 py-1.5 text-xs font-semibold text-white azure-blue azure-blue-hover rounded-lg shadow-sm">
-          Fechar
         </button>
       </div>
     </div>
@@ -2202,51 +2104,6 @@ export function getUIHtml(versionInfo: VersionInfo = APP_VERSION): string {
       document.body.appendChild(t);
       setTimeout(() => { t.remove(); }, 3500);
       return t;
-    }
-    // CONTROLE DE VERSÃO E DEPLOY
-    const CURRENT_DEPLOY = {
-      version: ${JSON.stringify(version)},
-      commit: ${JSON.stringify(commit)},
-      buildDate: ${JSON.stringify(buildDate)}
-    };
-
-    function openVersionModal() {
-      const statusBox = document.getElementById("versionCheckStatus");
-      if (statusBox) statusBox.classList.add("hidden");
-      document.getElementById("versionModal").classList.remove("hidden");
-    }
-
-    function closeVersionModal() {
-      document.getElementById("versionModal").classList.add("hidden");
-    }
-
-    async function checkRemoteVersion() {
-      const btn = document.getElementById("btnCheckVersion");
-      const statusBox = document.getElementById("versionCheckStatus");
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Checando...';
-
-      try {
-        const resp = await fetch("/api/version?_t=" + Date.now(), { cache: "no-store" });
-        if (!resp.ok) throw new Error("Status " + resp.status);
-        const data = await resp.json();
-
-        statusBox.classList.remove("hidden");
-        if (data.gitCommit && data.gitCommit !== CURRENT_DEPLOY.commit) {
-          statusBox.className = "p-3 rounded-xl text-xs bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300";
-          statusBox.innerHTML = '<div class="flex items-center justify-between"><div><b>🚀 Novo deploy detectado!</b><p class="text-[11px] mt-0.5">Servidor rodando commit <code>' + data.gitCommit + '</code> (atual: <code>' + CURRENT_DEPLOY.commit + '</code>).</p></div><button onclick="window.location.reload(true)" class="ml-2 px-2.5 py-1 text-xs bg-amber-600 text-white font-semibold rounded-md hover:bg-amber-700">Atualizar</button></div>';
-        } else {
-          statusBox.className = "p-3 rounded-xl text-xs bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300";
-          statusBox.innerHTML = '<i class="fa-solid fa-circle-check mr-1.5"></i> Você já está executando a versão mais recente deste deploy (v' + (data.version || CURRENT_DEPLOY.version) + ' • ' + (data.gitCommit || CURRENT_DEPLOY.commit) + ').';
-        }
-      } catch (err) {
-        statusBox.classList.remove("hidden");
-        statusBox.className = "p-3 rounded-xl text-xs bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-300";
-        statusBox.textContent = "Erro ao checar versão no servidor: " + err.message;
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate mr-1.5"></i> Checar Servidor';
-      }
     }
   </script>
 </body>
