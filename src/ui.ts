@@ -106,16 +106,19 @@ export function getUIHtml(): string {
 
       <!-- DELTA TABLE QUICK ACTION BANNER -->
       <div id="deltaFolderBanner" class="mb-4 p-3.5 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-slate-800/60 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-between hidden shadow-xs">
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-3 min-w-0 flex-1 mr-3">
           <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
             <i class="fa-solid fa-layer-group text-base"></i>
           </div>
-          <div>
-            <div class="flex items-center space-x-2">
-              <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100">Pasta Reconhecida como Delta Table</h4>
-              <span class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 text-[10px] font-semibold px-2 py-0.5 rounded-full">_delta_log ativo</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center space-x-2 flex-wrap">
+              <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
+                <span>Delta Table:</span>
+                <span id="deltaBannerTableName" class="font-mono text-indigo-700 dark:text-indigo-300 font-extrabold text-sm break-all"></span>
+              </h4>
+              <span class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0">_delta_log ativo</span>
             </div>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Esta pasta contém commits Delta Lake. Você pode inspecionar os dados consolidados e executar comandos SQL diretamente no navegador.</p>
+            <p id="deltaBannerSubtitle" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-mono"></p>
           </div>
         </div>
         <button onclick="openDeltaTableModal(activeContainer, currentPrefix)" class="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm flex items-center shrink-0 transition-colors">
@@ -126,7 +129,7 @@ export function getUIHtml(): string {
       <!-- Folders Grid -->
       <div id="foldersSection" class="mb-6 hidden">
         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Pastas</h3>
-        <div id="foldersGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div id="foldersGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           <!-- Pastas injetadas aqui -->
         </div>
       </div>
@@ -1016,6 +1019,18 @@ export function getUIHtml(): string {
         if (deltaBanner) {
           if (isCurrentDelta) {
             deltaBanner.classList.remove("hidden");
+            const cleanPrefix = currentPrefix.endsWith("/") ? currentPrefix.slice(0, -1) : currentPrefix;
+            const currentTableName = cleanPrefix.split("/").pop() || cleanPrefix || activeContainer;
+            const nameEl = document.getElementById("deltaBannerTableName");
+            if (nameEl) {
+              nameEl.textContent = currentTableName;
+              nameEl.title = currentTableName;
+            }
+            const subEl = document.getElementById("deltaBannerSubtitle");
+            if (subEl) {
+              subEl.textContent = "Container: " + activeContainer + " | Caminho: " + currentPrefix;
+              subEl.title = activeContainer + " / " + currentPrefix;
+            }
           } else {
             deltaBanner.classList.add("hidden");
           }
@@ -1047,9 +1062,9 @@ export function getUIHtml(): string {
             navBtn.title = f.name;
 
             if (f.name === "_delta_log") {
-              navBtn.innerHTML = '<i class="fa-solid fa-book-bookmark text-indigo-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate">_delta_log</span> <span class="text-[9px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-1 py-0.2 rounded font-semibold ml-1">Logs</span>';
+              navBtn.innerHTML = '<i class="fa-solid fa-book-bookmark text-indigo-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate flex-1 min-w-0" title="_delta_log">_delta_log</span> <span class="text-[9px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-1 py-0.2 rounded font-semibold ml-1 shrink-0">Logs</span>';
             } else {
-              navBtn.innerHTML = '<i class="fa-solid fa-folder text-yellow-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">' + escapeHtml(f.name) + '</span>';
+              navBtn.innerHTML = '<i class="fa-solid fa-folder text-yellow-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate flex-1 min-w-0" title="' + escapeQuotes(f.name) + '">' + escapeHtml(f.name) + '</span>';
             }
             navBtn.onclick = () => { currentPrefix = f.fullPath; loadDirectory(); };
             card.appendChild(navBtn);
@@ -1061,14 +1076,26 @@ export function getUIHtml(): string {
             if (f.name !== "_delta_log") {
               checkIfDeltaTableFolder(activeContainer, f.fullPath).then(isDelta => {
                 if (isDelta) {
+                  card.classList.add("border-indigo-300", "dark:border-indigo-700/80", "bg-indigo-50/25", "dark:bg-indigo-950/20");
+                  card.title = "Delta Table: " + f.name;
+
+                  // Atualizar ícone para Layer Group / Delta
+                  const folderIcon = navBtn.querySelector("i.fa-folder");
+                  if (folderIcon) {
+                    folderIcon.className = "fa-solid fa-layer-group text-indigo-500 text-base group-hover:scale-110 transition-transform shrink-0";
+                    folderIcon.title = "Delta Table: " + f.name;
+                  }
+
+                  // Adicionar tag compacta DELTA para nunca espremer o nome da tabela
                   const badge = document.createElement("span");
-                  badge.className = "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5";
-                  badge.innerHTML = '<i class="fa-solid fa-layer-group mr-1"></i>Delta Table';
+                  badge.className = "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ml-1.5";
+                  badge.textContent = "DELTA";
+                  badge.title = "Delta Lake Table: " + f.name;
                   navBtn.appendChild(badge);
 
                   const sqlBtn = document.createElement("button");
                   sqlBtn.type = "button";
-                  sqlBtn.className = "p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-md transition-colors";
+                  sqlBtn.className = "p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 rounded-md transition-colors";
                   sqlBtn.title = "Consultar Delta Table '" + escapeQuotes(f.name) + "' (SQL)";
                   sqlBtn.innerHTML = '<i class="fa-solid fa-terminal text-xs"></i>';
                   sqlBtn.onclick = (e) => {
@@ -2357,8 +2384,12 @@ export function getUIHtml(): string {
         totalPages: 1
       };
 
-      document.getElementById("deltaModalTitle").textContent = "Delta Table: " + rawName;
-      document.getElementById("deltaModalSubtitle").textContent = container + " / " + tablePrefix;
+      const modalTitleEl = document.getElementById("deltaModalTitle");
+      modalTitleEl.textContent = "Delta Table: " + rawName;
+      modalTitleEl.title = "Delta Table: " + rawName;
+      const modalSubEl = document.getElementById("deltaModalSubtitle");
+      modalSubEl.textContent = container + " / " + tablePrefix;
+      modalSubEl.title = container + " / " + tablePrefix;
       document.getElementById("deltaModalBadges").innerHTML = '<span class="text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Identificando...</span>';
       document.getElementById("deltaTableContent").innerHTML = '<p class="text-slate-400 text-xs p-4">Iniciando leitura dos logs...</p>';
       
