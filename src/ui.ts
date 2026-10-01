@@ -104,6 +104,25 @@ export function getUIHtml(): string {
         <span class="text-xs text-slate-500 dark:text-slate-400" id="itemCountLabel">Carregando itens...</span>
       </div>
 
+      <!-- DELTA TABLE QUICK ACTION BANNER -->
+      <div id="deltaFolderBanner" class="mb-4 p-3.5 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-slate-800/60 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-between hidden shadow-xs">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <i class="fa-solid fa-layer-group text-base"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100">Pasta Reconhecida como Delta Table</h4>
+              <span class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 text-[10px] font-semibold px-2 py-0.5 rounded-full">_delta_log ativo</span>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Esta pasta contém commits Delta Lake. Você pode inspecionar os dados consolidados e executar comandos SQL diretamente no navegador.</p>
+          </div>
+        </div>
+        <button onclick="openDeltaTableModal(activeContainer, currentPrefix)" class="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm flex items-center shrink-0 transition-colors">
+          <i class="fa-solid fa-terminal mr-1.5 text-indigo-200"></i> Consultar Tabela (SQL)
+        </button>
+      </div>
+
       <!-- Folders Grid -->
       <div id="foldersSection" class="mb-6 hidden">
         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Pastas</h3>
@@ -428,6 +447,104 @@ export function getUIHtml(): string {
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DELTA LAKE & SQL QUERY CONSOLE -->
+  <div id="deltaQueryModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-6xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-150">
+      
+      <!-- Top Modal Bar -->
+      <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-850/80">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 flex items-center shadow-xs">
+              <i class="fa-solid fa-layer-group mr-1.5"></i> Delta Lake
+            </span>
+            <h3 class="font-bold text-slate-900 dark:text-slate-100 text-base truncate" id="deltaModalTitle">Consultar Delta Table</h3>
+            <span id="deltaModalBadges" class="flex items-center gap-1.5 ml-2"></span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5 font-mono" id="deltaModalSubtitle"></p>
+        </div>
+
+        <div class="flex items-center space-x-2 shrink-0">
+          <button id="deltaExportCsvBtn" onclick="exportDeltaQueryResultsCsv()" title="Exportar resultado atual para CSV" class="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-700 shadow-xs inline-flex items-center">
+            <i class="fa-solid fa-file-csv mr-1 text-emerald-500"></i> Exportar CSV
+          </button>
+          <button id="deltaCopyJsonBtn" onclick="copyDeltaQueryResultsJson()" title="Copiar resultado como JSON" class="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-700 shadow-xs inline-flex items-center">
+            <i class="fa-regular fa-copy mr-1 text-amber-500"></i> Copiar JSON
+          </button>
+          <button onclick="closeDeltaQueryModal()" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- SQL Query Console Area -->
+      <div class="p-4 bg-slate-50/60 dark:bg-slate-850/40 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <i class="fa-solid fa-terminal text-blue-500"></i>
+            <span>Console SQL (em memória / read-only)</span>
+            <span class="text-[11px] font-normal text-slate-400 dark:text-slate-500">Tabela disponível como <code class="font-mono text-blue-600 dark:text-blue-400">delta_table</code></span>
+          </div>
+          <!-- Quick templates -->
+          <div class="flex items-center space-x-1.5 text-[11px]">
+            <button onclick="setDeltaSqlTemplate('select_all')" class="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs">
+              SELECT *
+            </button>
+            <button onclick="setDeltaSqlTemplate('count')" class="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs">
+              COUNT(*)
+            </button>
+          </div>
+        </div>
+
+        <div class="relative">
+          <textarea id="deltaSqlInput" rows="3" spellcheck="false" placeholder="Digite seu comando SQL aqui... Ex: SELECT * FROM delta_table LIMIT 50;" class="w-full font-mono text-xs p-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"></textarea>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center space-x-3" id="deltaExecutionStats">
+            <span>Dica: Pressione <b>Ctrl + Enter</b> para executar</span>
+          </div>
+          <button id="btnRunDeltaSql" onclick="executeDeltaQuery()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-sm flex items-center space-x-1.5 transition-colors">
+            <i class="fa-solid fa-play text-[10px]"></i>
+            <span>Executar SQL</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Results Area -->
+      <div class="flex-1 overflow-hidden relative flex flex-col">
+        <!-- Loading State Indicator -->
+        <div id="deltaLoadingOverlay" class="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs flex flex-col items-center justify-center z-20 space-y-3 hidden">
+          <div class="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p id="deltaLoadingText" class="text-xs font-semibold text-slate-700 dark:text-slate-200 animate-pulse">Carregando dados da Delta Table...</p>
+        </div>
+
+        <!-- Table View -->
+        <div id="deltaTableView" class="flex-1 overflow-auto custom-scroll p-4 bg-white dark:bg-slate-900">
+          <div id="deltaTableContent">
+            <!-- Tabela injetada dinamicamente -->
+          </div>
+        </div>
+
+        <!-- Pagination & Footer Bar -->
+        <div id="deltaPaginationBar" class="px-5 py-2.5 bg-slate-50 dark:bg-slate-850/90 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+          <div id="deltaPaginationInfo">0 registros</div>
+          <div class="flex items-center space-x-2">
+            <button id="deltaPrevPageBtn" onclick="deltaChangePage(-1)" disabled class="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700">
+              <i class="fa-solid fa-chevron-left mr-1"></i> Anterior
+            </button>
+            <span id="deltaPageIndicator" class="font-mono text-slate-700 dark:text-slate-200 font-semibold">1 / 1</span>
+            <button id="deltaNextPageBtn" onclick="deltaChangePage(1)" disabled class="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700">
+              Próxima <i class="fa-solid fa-chevron-right ml-1"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   </div>
 
@@ -893,6 +1010,17 @@ export function getUIHtml(): string {
         currentFiles = data.files || [];
         const folders = data.folders || [];
 
+        // Detecção de Delta Table na pasta atual (_delta_log presente)
+        const isCurrentDelta = folders.some(f => f.name === "_delta_log");
+        const deltaBanner = document.getElementById("deltaFolderBanner");
+        if (deltaBanner) {
+          if (isCurrentDelta) {
+            deltaBanner.classList.remove("hidden");
+          } else {
+            deltaBanner.classList.add("hidden");
+          }
+        }
+
         // Renderizar Pastas
         if (folders.length > 0) {
           foldersSection.classList.remove("hidden");
@@ -917,12 +1045,40 @@ export function getUIHtml(): string {
             navBtn.type = "button";
             navBtn.className = "flex items-center space-x-2 flex-1 min-w-0 text-left py-0.5";
             navBtn.title = f.name;
-            navBtn.innerHTML = '<i class="fa-solid fa-folder text-yellow-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">' + escapeHtml(f.name) + '</span>';
+
+            if (f.name === "_delta_log") {
+              navBtn.innerHTML = '<i class="fa-solid fa-book-bookmark text-indigo-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate">_delta_log</span> <span class="text-[9px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-1 py-0.2 rounded font-semibold ml-1">Logs</span>';
+            } else {
+              navBtn.innerHTML = '<i class="fa-solid fa-folder text-yellow-500 text-base group-hover:scale-110 transition-transform shrink-0"></i><span class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">' + escapeHtml(f.name) + '</span>';
+            }
             navBtn.onclick = () => { currentPrefix = f.fullPath; loadDirectory(); };
             card.appendChild(navBtn);
 
             const actionsDiv = document.createElement("div");
             actionsDiv.className = "flex items-center space-x-1 shrink-0 ml-1";
+
+            // Se for uma pasta comum, verificar assincronamente se é uma Delta Table
+            if (f.name !== "_delta_log") {
+              checkIfDeltaTableFolder(activeContainer, f.fullPath).then(isDelta => {
+                if (isDelta) {
+                  const badge = document.createElement("span");
+                  badge.className = "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5";
+                  badge.innerHTML = '<i class="fa-solid fa-layer-group mr-1"></i>Delta Table';
+                  navBtn.appendChild(badge);
+
+                  const sqlBtn = document.createElement("button");
+                  sqlBtn.type = "button";
+                  sqlBtn.className = "p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-md transition-colors";
+                  sqlBtn.title = "Consultar Delta Table '" + escapeQuotes(f.name) + "' (SQL)";
+                  sqlBtn.innerHTML = '<i class="fa-solid fa-terminal text-xs"></i>';
+                  sqlBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    openDeltaTableModal(activeContainer, f.fullPath);
+                  };
+                  actionsDiv.insertBefore(sqlBtn, actionsDiv.firstChild);
+                }
+              });
+            }
 
             const renBtn = document.createElement("button");
             renBtn.type = "button";
@@ -2104,6 +2260,420 @@ export function getUIHtml(): string {
       document.body.appendChild(t);
       setTimeout(() => { t.remove(); }, 3500);
       return t;
+    }
+
+    // ==========================================
+    // DELTA LAKE & SQL QUERY CONSOLE (CLIENT-SIDE)
+    // ==========================================
+    const deltaFolderCache = new Map();
+    let alasqlModule = null;
+
+    let currentDeltaState = {
+      container: "",
+      tablePrefix: "",
+      tableName: "",
+      activeFiles: [],
+      schema: null,
+      allRows: [],
+      columns: [],
+      queryResult: [],
+      page: 1,
+      pageSize: 50,
+      totalPages: 1
+    };
+
+    async function loadAlaSQL() {
+      if (alasqlModule) return alasqlModule;
+      try {
+        const mod = await import('https://cdn.jsdelivr.net/npm/alasql@4.6.4/+esm');
+        alasqlModule = mod.default || mod;
+        return alasqlModule;
+      } catch (e) {
+        console.warn("[DeltaLake] Falha ao carregar AlaSQL via CDN:", e);
+        return null;
+      }
+    }
+
+    async function checkIfDeltaTableFolder(container, path) {
+      const cacheKey = container + ":" + path;
+      if (deltaFolderCache.has(cacheKey)) return deltaFolderCache.get(cacheKey);
+      try {
+        const resp = await fetch("/api/blobs?container=" + encodeURIComponent(container) + "&prefix=" + encodeURIComponent(path + "_delta_log/"), {
+          headers: getAuthHeaders()
+        });
+        if (!resp.ok) {
+          deltaFolderCache.set(cacheKey, false);
+          return false;
+        }
+        const data = await resp.json();
+        const hasLogs = (data.files && data.files.length > 0) || (data.folders && data.folders.length > 0);
+        deltaFolderCache.set(cacheKey, hasLogs);
+        return hasLogs;
+      } catch (e) {
+        deltaFolderCache.set(cacheKey, false);
+        return false;
+      }
+    }
+
+    function closeDeltaQueryModal() {
+      const modal = document.getElementById("deltaQueryModal");
+      if (modal) modal.classList.add("hidden");
+    }
+
+    function setDeltaLoading(show, text = "") {
+      const overlay = document.getElementById("deltaLoadingOverlay");
+      const textEl = document.getElementById("deltaLoadingText");
+      if (!overlay) return;
+      if (show) {
+        overlay.classList.remove("hidden");
+        if (textEl && text) textEl.textContent = text;
+      } else {
+        overlay.classList.add("hidden");
+      }
+    }
+
+    async function openDeltaTableModal(container, tablePrefix) {
+      const modal = document.getElementById("deltaQueryModal");
+      if (!modal) return;
+      modal.classList.remove("hidden");
+
+      if (tablePrefix && !tablePrefix.endsWith("/")) {
+        tablePrefix += "/";
+      }
+
+      const rawName = tablePrefix.replace(/\/$/, "").split("/").pop() || "delta_table";
+      currentDeltaState = {
+        container,
+        tablePrefix,
+        tableName: rawName,
+        activeFiles: [],
+        schema: null,
+        allRows: [],
+        columns: [],
+        queryResult: [],
+        page: 1,
+        pageSize: 50,
+        totalPages: 1
+      };
+
+      document.getElementById("deltaModalTitle").textContent = "Delta Table: " + rawName;
+      document.getElementById("deltaModalSubtitle").textContent = container + " / " + tablePrefix;
+      document.getElementById("deltaModalBadges").innerHTML = '<span class="text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Identificando...</span>';
+      document.getElementById("deltaTableContent").innerHTML = '<p class="text-slate-400 text-xs p-4">Iniciando leitura dos logs...</p>';
+      
+      const sqlInput = document.getElementById("deltaSqlInput");
+      sqlInput.value = "SELECT * FROM delta_table LIMIT 50;";
+      sqlInput.onkeydown = (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          executeDeltaQuery();
+        }
+      };
+
+      document.getElementById("deltaExecutionStats").innerHTML = '<span>Dica: Pressione <b>Ctrl + Enter</b> para executar</span>';
+      setDeltaLoading(true, "Lendo histórico de commits em _delta_log/...");
+
+      try {
+        // 1. Listar commits no _delta_log/
+        const logResp = await fetch("/api/blobs?container=" + encodeURIComponent(container) + "&prefix=" + encodeURIComponent(tablePrefix + "_delta_log/"), {
+          headers: getAuthHeaders()
+        });
+
+        if (!logResp.ok) {
+          throw new Error("Não foi possível acessar a pasta _delta_log/ (" + logResp.status + ")");
+        }
+
+        const logData = await logResp.json();
+        const commitFiles = (logData.files || [])
+          .filter(f => f.name.endsWith(".json"))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        if (commitFiles.length === 0) {
+          throw new Error("Nenhum arquivo de commit .json encontrado em _delta_log/");
+        }
+
+        setDeltaLoading(true, "Processando " + commitFiles.length + " commit(s) Delta Lake...");
+
+        // 2. Resolver commits sequencialmente (add vs remove)
+        const activeFilesMap = new Map();
+        let detectedSchema = null;
+
+        for (const cf of commitFiles) {
+          const cResp = await fetch("/api/preview?container=" + encodeURIComponent(container) + "&blob=" + encodeURIComponent(cf.fullPath), {
+            headers: getAuthHeaders()
+          });
+          if (!cResp.ok) continue;
+          const text = await cResp.text();
+          const lines = text.split("\n");
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const action = JSON.parse(line);
+              if (action.metaData) {
+                detectedSchema = action.metaData;
+              }
+              if (action.add) {
+                const path = decodeURIComponent(action.add.path);
+                activeFilesMap.set(path, action.add);
+              }
+              if (action.remove) {
+                const path = decodeURIComponent(action.remove.path);
+                activeFilesMap.delete(path);
+              }
+            } catch (jsonErr) {}
+          }
+        }
+
+        const activeFiles = Array.from(activeFilesMap.values());
+        currentDeltaState.activeFiles = activeFiles;
+        currentDeltaState.schema = detectedSchema;
+
+        if (activeFiles.length === 0) {
+          throw new Error("A Delta Table não possui arquivos Parquet ativos no commit atual.");
+        }
+
+        // 3. Teto seguro de leitura de arquivos (50 MB - ADR 0005 & R-5)
+        const MAX_BYTES = 52428800;
+        let totalSize = 0;
+        const filesToLoad = [];
+        for (const f of activeFiles) {
+          if (totalSize + (f.size || 0) > MAX_BYTES && filesToLoad.length > 0) {
+            break;
+          }
+          filesToLoad.push(f);
+          totalSize += (f.size || 0);
+        }
+
+        setDeltaLoading(true, "Carregando dados de " + filesToLoad.length + " arquivo(s) Parquet...");
+
+        // 4. Carregar e parsear Parquet com hyparquet
+        const { hyparquet, compressors } = await loadParquetModules();
+        const loadedRows = [];
+
+        for (let i = 0; i < filesToLoad.length; i++) {
+          const f = filesToLoad[i];
+          setDeltaLoading(true, "Lendo arquivo " + (i + 1) + " de " + filesToLoad.length + " (" + Math.round((f.size || 0)/1024) + " KB)...");
+          const fullBlob = tablePrefix + f.path;
+          const fResp = await fetch("/api/preview?container=" + encodeURIComponent(container) + "&blob=" + encodeURIComponent(fullBlob), {
+            headers: getAuthHeaders()
+          });
+          if (!fResp.ok) continue;
+          const arrayBuffer = await fResp.arrayBuffer();
+          const readOpts = { file: arrayBuffer, rowStart: 0, rowEnd: 2000 };
+          if (compressors) readOpts.compressors = compressors;
+          const rows = await hyparquet.parquetReadObjects(readOpts);
+          if (rows && rows.length > 0) {
+            if (f.partitionValues) {
+              rows.forEach(r => Object.assign(r, f.partitionValues));
+            }
+            loadedRows.push(...rows);
+          }
+          if (loadedRows.length >= 10000) break; // Teto de segurança para estabilidade da UI
+        }
+
+        currentDeltaState.allRows = loadedRows;
+        currentDeltaState.queryResult = loadedRows;
+        const columns = loadedRows.length > 0 ? Object.keys(loadedRows[0]) : [];
+        currentDeltaState.columns = columns;
+
+        // Atualizar Badges no Cabeçalho
+        const badgesHtml = 
+          '<span class="bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-semibold"><i class="fa-solid fa-table-columns mr-1"></i>' + columns.length + ' colunas</span>' +
+          '<span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 text-xs px-2 py-0.5 rounded-full font-semibold ml-1"><i class="fa-solid fa-database mr-1"></i>' + activeFiles.length + ' arquivos ativos</span>' +
+          '<span class="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs px-2 py-0.5 rounded-full font-medium ml-1">' + loadedRows.length.toLocaleString() + ' linhas carregadas</span>';
+        document.getElementById("deltaModalBadges").innerHTML = badgesHtml;
+
+        // Renderizar Primeira Página
+        currentDeltaState.page = 1;
+        renderDeltaTablePage();
+
+        setDeltaLoading(false);
+      } catch (err) {
+        console.error("[DeltaLake] Erro ao abrir Delta Table:", err);
+        setDeltaLoading(false);
+        document.getElementById("deltaTableContent").innerHTML = 
+          '<div class="p-6 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-center text-red-700 dark:text-red-300">' +
+          '<i class="fa-solid fa-triangle-exclamation text-2xl mb-2"></i>' +
+          '<p class="font-bold">Não foi possível carregar a Delta Table</p>' +
+          '<p class="text-xs mt-1 text-slate-600 dark:text-slate-400">' + escapeHtml(err.message || String(err)) + '</p>' +
+          '</div>';
+      }
+    }
+
+    function renderDeltaTablePage() {
+      const container = document.getElementById("deltaTableContent");
+      const { queryResult, page, pageSize } = currentDeltaState;
+
+      if (!queryResult || queryResult.length === 0) {
+        container.innerHTML = '<div class="p-8 text-center text-slate-400 text-xs"><i class="fa-solid fa-table text-2xl mb-2 text-slate-300"></i><p>Nenhum registro encontrado para esta consulta.</p></div>';
+        document.getElementById("deltaPaginationInfo").textContent = "0 registros";
+        document.getElementById("deltaPageIndicator").textContent = "0 / 0";
+        document.getElementById("deltaPrevPageBtn").disabled = true;
+        document.getElementById("deltaNextPageBtn").disabled = true;
+        return;
+      }
+
+      const totalRows = queryResult.length;
+      const totalPages = Math.ceil(totalRows / pageSize) || 1;
+      currentDeltaState.totalPages = totalPages;
+
+      const startIdx = (page - 1) * pageSize;
+      const endIdx = Math.min(startIdx + pageSize, totalRows);
+      const pageRows = queryResult.slice(startIdx, endIdx);
+
+      const columns = Object.keys(pageRows[0] || {});
+
+      let html = '<div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl custom-scroll max-h-[50vh]">';
+      html += '<table class="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-xs text-left">';
+      html += '<thead class="bg-slate-100 dark:bg-slate-800/90 font-bold text-slate-700 dark:text-slate-200 sticky top-0 z-10 shadow-xs"><tr>';
+      html += '<th class="px-3 py-2.5 w-12 text-slate-400 dark:text-slate-500 text-center font-mono select-none">#</th>';
+
+      columns.forEach(col => {
+        html += '<th class="px-3 py-2.5 whitespace-nowrap"><div class="flex items-center space-x-1 font-mono text-slate-800 dark:text-slate-100"><span>' + escapeHtml(col) + '</span></div></th>';
+      });
+      html += '</tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">';
+
+      pageRows.forEach((row, idx) => {
+        const rowNum = startIdx + idx + 1;
+        html += '<tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/50 transition-colors">';
+        html += '<td class="px-3 py-2 text-slate-400 dark:text-slate-500 font-mono text-center select-none">' + rowNum + '</td>';
+        columns.forEach(col => {
+          html += '<td class="px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300 truncate max-w-xs">' + formatDeltaCellValue(row[col]) + '</td>';
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+
+      // Atualizar Paginação
+      document.getElementById("deltaPaginationInfo").textContent = "Exibindo " + (startIdx + 1) + "–" + endIdx + " de " + totalRows.toLocaleString() + " registro(s)";
+      document.getElementById("deltaPageIndicator").textContent = page + " / " + totalPages;
+      document.getElementById("deltaPrevPageBtn").disabled = page <= 1;
+      document.getElementById("deltaNextPageBtn").disabled = page >= totalPages;
+    }
+
+    function deltaChangePage(delta) {
+      const newPage = currentDeltaState.page + delta;
+      if (newPage >= 1 && newPage <= currentDeltaState.totalPages) {
+        currentDeltaState.page = newPage;
+        renderDeltaTablePage();
+      }
+    }
+
+    function formatDeltaCellValue(val) {
+      if (val === null || val === undefined) return '<span class="text-slate-400 italic font-mono text-[11px]">null</span>';
+      if (typeof val === "object") {
+        const jsonStr = JSON.stringify(val);
+        return '<span class="font-mono text-[11px] bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 px-1 py-0.5 rounded cursor-help" title="' + escapeHtml(jsonStr) + '">' + escapeHtml(jsonStr.length > 60 ? jsonStr.slice(0, 60) + "..." : jsonStr) + '</span>';
+      }
+      return escapeHtml(String(val));
+    }
+
+    function setDeltaSqlTemplate(templateType) {
+      const input = document.getElementById("deltaSqlInput");
+      if (!input) return;
+      if (templateType === "select_all") {
+        input.value = "SELECT * FROM delta_table LIMIT 50;";
+      } else if (templateType === "count") {
+        input.value = "SELECT COUNT(*) AS total_linhas FROM delta_table;";
+      }
+      executeDeltaQuery();
+    }
+
+    async function executeDeltaQuery() {
+      const query = (document.getElementById("deltaSqlInput").value || "").trim();
+      if (!query) return;
+      const statsEl = document.getElementById("deltaExecutionStats");
+      const t0 = performance.now();
+
+      try {
+        const ala = await loadAlaSQL();
+        if (ala) {
+          ala('DROP TABLE IF EXISTS delta_table');
+          ala('CREATE TABLE delta_table');
+          ala.tables.delta_table.data = currentDeltaState.allRows;
+
+          const tName = currentDeltaState.tableName.replace(/[^a-zA-Z0-9_]/g, "_");
+          if (tName && tName !== "delta_table") {
+            try {
+              ala('DROP TABLE IF EXISTS ' + tName);
+              ala('CREATE TABLE ' + tName);
+              ala.tables[tName].data = currentDeltaState.allRows;
+            } catch (tErr) {}
+          }
+
+          const res = ala(query);
+          const t1 = performance.now();
+          const rows = Array.isArray(res) ? res : [res];
+          currentDeltaState.queryResult = rows;
+          currentDeltaState.page = 1;
+          renderDeltaTablePage();
+          statsEl.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-semibold"><i class="fa-solid fa-check mr-1"></i> ' + rows.length.toLocaleString() + ' resultado(s) em ' + (t1 - t0).toFixed(1) + ' ms</span>';
+        } else {
+          // Fallback SQL query simples se AlaSQL offline
+          runFallbackSqlQuery(query, t0);
+        }
+      } catch (err) {
+        console.error("[DeltaLake] Erro SQL:", err);
+        statsEl.innerHTML = '<span class="text-red-600 dark:text-red-400 font-semibold"><i class="fa-solid fa-circle-exclamation mr-1"></i> Erro SQL: ' + escapeHtml(err.message || String(err)) + '</span>';
+      }
+    }
+
+    function runFallbackSqlQuery(query, t0) {
+      let rows = [...currentDeltaState.allRows];
+      const limitMatch = query.match(/LIMIT\s+(\d+)/i);
+      if (limitMatch) {
+        const lim = parseInt(limitMatch[1], 10);
+        rows = rows.slice(0, lim);
+      }
+      const t1 = performance.now();
+      currentDeltaState.queryResult = rows;
+      currentDeltaState.page = 1;
+      renderDeltaTablePage();
+      const statsEl = document.getElementById("deltaExecutionStats");
+      statsEl.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-semibold"><i class="fa-solid fa-check mr-1"></i> ' + rows.length.toLocaleString() + ' resultado(s) em ' + (t1 - t0).toFixed(1) + ' ms</span>';
+    }
+
+    function copyDeltaQueryResultsJson() {
+      const rows = currentDeltaState.queryResult || [];
+      if (rows.length === 0) {
+        showToast("Nenhum dado para copiar", "info");
+        return;
+      }
+      navigator.clipboard.writeText(JSON.stringify(rows, null, 2)).then(() => {
+        showToast("Resultado copiado como JSON (" + rows.length + " registros)", "success");
+      });
+    }
+
+    function exportDeltaQueryResultsCsv() {
+      const rows = currentDeltaState.queryResult || [];
+      if (rows.length === 0) {
+        showToast("Nenhum dado para exportar", "info");
+        return;
+      }
+      const cols = Object.keys(rows[0] || {});
+      const lines = [cols.join(",")];
+      rows.forEach(r => {
+        const line = cols.map(c => {
+          let v = r[c];
+          if (v === null || v === undefined) return '""';
+          if (typeof v === "object") v = JSON.stringify(v);
+          v = String(v).replace(/"/g, '""');
+          return '"' + v + '"';
+        }).join(",");
+        lines.push(line);
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (currentDeltaState.tableName || "delta_query") + "_resultado.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("CSV exportado com sucesso!", "success");
     }
   </script>
 </body>
