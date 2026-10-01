@@ -21,12 +21,32 @@ export function getUIHtml(): string {
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .dark .custom-scroll::-webkit-scrollbar-thumb { background: #475569; }
+
+    /* Padrão de Fundo Estilo Canva: Micro-grid com profundidade radial e alto contraste */
+    .bg-pattern {
+      background-color: #f8fafc;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(224, 242, 254, 0.65) 0%, transparent 60%),
+        radial-gradient(rgba(148, 163, 184, 0.25) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px;
+      background-repeat: no-repeat, repeat;
+      background-attachment: fixed;
+    }
+    .dark .bg-pattern {
+      background-color: #030712;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(30, 58, 138, 0.35) 0%, transparent 60%),
+        radial-gradient(rgba(99, 102, 241, 0.18) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px;
+      background-repeat: no-repeat, repeat;
+      background-attachment: fixed;
+    }
   </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-150">
+<body class="bg-pattern text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-150">
 
   <!-- TOP NAVBAR -->
-  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm transition-colors duration-150">
+  <header class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 sticky top-0 z-30 shadow-xs transition-colors duration-150">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <i class="fa-solid fa-cloud text-2xl azure-text"></i>
@@ -74,7 +94,7 @@ export function getUIHtml(): string {
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
 
     <!-- BREADCRUMBS & ACTIONS -->
-    <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-6 shadow-sm flex flex-wrap items-center justify-between gap-4 transition-colors duration-150">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-4 mb-6 shadow-xs flex flex-wrap items-center justify-between gap-4 transition-colors duration-150">
       <div class="flex items-center space-x-2 text-sm font-medium overflow-x-auto py-1 custom-scroll max-w-2xl text-slate-700 dark:text-slate-300" id="breadcrumbBar">
         <!-- Breadcrumbs preenchidos dinamicamente -->
       </div>
@@ -135,7 +155,7 @@ export function getUIHtml(): string {
       </div>
 
       <!-- Files Table -->
-      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-colors duration-150">
+      <div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden shadow-xs transition-colors duration-150">
         <div class="overflow-x-auto custom-scroll">
           <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-left text-sm">
             <thead class="bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 text-xs uppercase font-semibold">
