@@ -2341,7 +2341,8 @@ export function getUIHtml(): string {
         tablePrefix += "/";
       }
 
-      const rawName = tablePrefix.replace(/\/$/, "").split("/").pop() || "delta_table";
+      const cleanPrefix = (tablePrefix && tablePrefix.endsWith("/")) ? tablePrefix.slice(0, -1) : (tablePrefix || "");
+      const rawName = cleanPrefix.split("/").pop() || "delta_table";
       currentDeltaState = {
         container,
         tablePrefix,
@@ -2404,7 +2405,7 @@ export function getUIHtml(): string {
           });
           if (!cResp.ok) continue;
           const text = await cResp.text();
-          const lines = text.split("\n");
+          const lines = text.split(/\\r?\\n/);
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
@@ -2622,7 +2623,7 @@ export function getUIHtml(): string {
 
     function runFallbackSqlQuery(query, t0) {
       let rows = [...currentDeltaState.allRows];
-      const limitMatch = query.match(/LIMIT\s+(\d+)/i);
+      const limitMatch = query.match(/LIMIT\\s+(\\d+)/i);
       if (limitMatch) {
         const lim = parseInt(limitMatch[1], 10);
         rows = rows.slice(0, lim);
@@ -2664,7 +2665,7 @@ export function getUIHtml(): string {
         }).join(",");
         lines.push(line);
       });
-      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const blob = new Blob([lines.join("\\r\\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
